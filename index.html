@@ -57,6 +57,27 @@
     return !!document.fullscreenElement;
   }
 
+  // Keep the screen from sleeping during the (up to 90-minute) playback.
+  // The lock is auto-released whenever the tab is hidden, so it's
+  // re-requested on visibilitychange and on every interaction.
+  let wakeLock = null;
+
+  async function requestWakeLock() {
+    if (!('wakeLock' in navigator) || wakeLock) return;
+    try {
+      wakeLock = await navigator.wakeLock.request('screen');
+      wakeLock.addEventListener('release', () => { wakeLock = null; });
+    } catch (e) {
+      wakeLock = null;
+    }
+  }
+
+  document.addEventListener('visibilitychange', () => {
+    if (document.visibilityState === 'visible') requestWakeLock();
+  });
+
+  requestWakeLock();
+
   function requestFullscreen() {
     const el = stage;
     const request = el.requestFullscreen
@@ -99,6 +120,7 @@
       if (video.paused) {
         video.play().catch(() => {});
       }
+      requestWakeLock();
     });
   });
 
